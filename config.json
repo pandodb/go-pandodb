@@ -1,4 +1,4 @@
 {
-    "IPFSNodeAddress": "http://127.0.0.1:5001",
-    "EthereumNodeAddress": "10.1.1.54:4001"
+    "IPFSNodeAddress": "http://10.1.1.54:5001",
+    "GethNodeAddress": "http://10.1.1.54:8545"
 }

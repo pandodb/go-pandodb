@@ -3,23 +3,27 @@ package main
 import (
     "fmt"    
     "os"
-    "log"
-    "io"
-    "bytes"
-    "io/ioutil"
-    "encoding/json"
-    "net/http"    
+    "errors"    
+    "encoding/json"        
     "github.com/spf13/cobra" 
 )
 
-type Configuration struct {
+type Configuration struct {        
     IPFSNodeAddress string
-    EthereumNodeAddress string
+    GethNodeAddress string
 }
 
 func main() {        		    
-    configuration := loadConfiguration();    
+    configuration, err := loadConfiguration();    
+    if(err != nil) {
+        fmt.Println(err)
+        return
+    }    
     addCommands(configuration);
+}
+
+func AddOne(x int) int {
+    return x + 1
 }
 
 func addCommands(configuration Configuration) {
@@ -27,40 +31,37 @@ func addCommands(configuration Configuration) {
         Use:   "version",
         Short: "Show version of app",        
         Run: func(cmd *cobra.Command, args []string) {
-            fmt.Println("pandodb version: 0.0.1")
-        },
-    }
-    
-    var cmdIPFSNodeAddress = &cobra.Command{
-        Use:   "ipfsnodeaddress",
-        Short: "Show address of IPFS node",        
-        Run: func(cmd *cobra.Command, args []string) {
-            fmt.Println("IPFS node address: " + configuration.IPFSNodeAddress)
+            fmt.Println("pandodb version: 0.0.001")
         },
     }        
     
-    var cmdPing = &cobra.Command{
-        Use:   "ping",
-        Short: "ping [ipfs/ethereum]",
-    }        
-    
-    var cmdPingIPFS = &cobra.Command{
+    var cmdIPFS = &cobra.Command{
         Use:   "ipfs",
-        Short: "Pings the IPFS node",        
+        Short: "ipfs [subcommand]",
+    }        
+    
+    var cmdGeth = &cobra.Command{
+        Use:   "geth",
+        Short: "geth [subcommand]",
+    }        
+    
+    var cmdIPFSVersion = &cobra.Command{
+        Use:   "version",
+        Short: "verion",        
         Run: func(cmd *cobra.Command, args []string) {
-            fmt.Println("Pinging: " + configuration.IPFSNodeAddress)
-            pingIPFS();
+            //RunIPFSCommand(configuration.IPFSNodeAddress + "/api/v0/version")
+            IPFSAdd();
         },
     }        
     
-    var cmdPingEthereum = &cobra.Command{
-        Use:   "ethereum",
-        Short: "Pings the Ethereum node",        
+    var cmdGethVersion = &cobra.Command{
+        Use:   "version",
+        Short: "verion",        
         Run: func(cmd *cobra.Command, args []string) {
-            fmt.Println("Pinging: " + configuration.EthereumNodeAddress)
-            pingEthereum();
+            var jsonStr = []byte(`{"jsonrpc":"2.0","method":"net_version","params":[],"id":67}`)
+            RunGethCommand(configuration.GethNodeAddress, jsonStr);
         },
-    }        
+    }            
     
     var cmdDB = &cobra.Command{
         Use:   "db",
@@ -76,54 +77,27 @@ func addCommands(configuration Configuration) {
     }    
 	
 	var rootCmd = &cobra.Command{Use: "app"}
-    cmdPing.AddCommand(cmdPingIPFS)
-    cmdPing.AddCommand(cmdPingEthereum)
+    cmdIPFS.AddCommand(cmdIPFSVersion)
+    cmdGeth.AddCommand(cmdGethVersion)
     
     cmdDB.AddCommand(cmdDBNew)
     
-    rootCmd.AddCommand(cmdVersion, cmdPing, cmdDB, cmdIPFSNodeAddress)    
+    rootCmd.AddCommand(cmdVersion, cmdGeth, cmdIPFS, cmdDB)    
     rootCmd.Execute()
 }
 
-func pingIPFS() {
-    response, err := http.Get("http://127.0.0.1:5001/api/v0/version")
-    if err != nil {        
-        log.Fatal(err)
-    } else {
-        defer response.Body.Close()        
-        _, err := io.Copy(os.Stdout, response.Body)
-        
-        if err != nil {
-            log.Fatal(err)
-        }
-    }
-}
-
-func pingEthereum() {
-    url := "http://localhost:8545"
-    var jsonStr = []byte(`{"jsonrpc":"2.0","method":"net_version","params":[],"id":67}`)
-    req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
-    req.Header.Set("X-Custom-Header", "myvalue")
-    req.Header.Set("Content-Type", "application/json")
-
-    client := &http.Client{}
-    resp, err := client.Do(req)
-    if err != nil {
-        panic(err)
-    }
-    defer resp.Body.Close()    
-    body, _ := ioutil.ReadAll(resp.Body)
-    fmt.Println("response:", string(body))
-}
-
-
-func loadConfiguration() Configuration {
-    file, _ := os.Open("config.json")
-    decoder := json.NewDecoder(file)
+func loadConfiguration() (Configuration, error) {
     configuration := Configuration{}
+
+    if _, err := os.Stat("/path/to/whatever"); err == nil {        
+        return configuration, errors.New("Configuration file not found.")
+    }
+
+    file, _ := os.Open("config.json")
+    decoder := json.NewDecoder(file)    
     err := decoder.Decode(&configuration)
     if err != nil {
         fmt.Println("error:", err)
     }    
-    return configuration    
+    return configuration, nil
 }
